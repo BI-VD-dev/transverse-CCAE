@@ -1,0 +1,22 @@
+# Ignore all top-level directories
+/*/
+
+# But do not ignore files in the root directory
+!/*.*
+
+# ignore common output/temporary files
+__pycache__/
+*.pyc
+*.log
+*.tmp
+
+# IDE/workspace settings
+.vscode/
+.idea/
+*.swp
+.conda/
+.ipynb_checkpoints/
+
+
+# Allow tracking of any individual files you want inside otherwise-ignored folders
+!output/
