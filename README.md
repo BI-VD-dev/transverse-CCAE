@@ -1,7 +1,11 @@
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 # tranverse-CCAE Project
 
+<<<<<<< HEAD
 This repository contains the core codebase for a PyTorch implementation of a conditional convolutional autoencoder for inferring the downstream transverse profile from an upstream measurement and magnetic optics.
+=======
+This repository contains the core codebase for a conditional convolutional autoencoder for transverse profile prediction.
+>>>>>>> e4b3b60 (Initial commit)
 The project supports modular experimentation, version control, and collaborative development via GitHub.
 
 ## Authors
