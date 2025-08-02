@@ -202,7 +202,7 @@ def sigmoid_rampup(current, rampup_length):
     """Exponential sigmoid rampup from 0 to 1 over `rampup_length` steps."""
     if rampup_length == 0:
         return 1.0
-    current = float(current)  # Ensure it's a plain float, not a tensor
+    #current = float(current)
     current = np.clip(current, 0.0, rampup_length)
     phase = 1.0 - current / rampup_length
     return float(np.exp(-5.0 * phase * phase))
@@ -210,9 +210,12 @@ def sigmoid_rampup(current, rampup_length):
 def get_loss_weights(step, max_lpips_weight = max_lpips_weight, warmup_steps=blend_warmup_steps, patience_counter = 0, prev_patience_counter = 0, lpips_decay_patience=lpips_decay_patience, lpips_decay_started=False):
 
     # LPIPS Ramp-up Phase
+    step = float(step)
+    #print(step)
     if step < warmup_steps:
         # LPIPS ramps from 0 to 0.9
-        lpips_weight = max_lpips_weight*sigmoid_rampup(step,warmup_steps) #max_lpips_weight * progress
+        lpips_weight = max_lpips_weight*sigmoid_rampup(step,warmup_steps)
+        #max_lpips_weight * progress
 
     # LPIPS Constant Phase
     elif not lpips_decay_started and patience_counter < lpips_decay_patience:
@@ -297,10 +300,12 @@ def train(model, train_loader, val_loader, optimizer, device, num_epochs, val_sa
                 lpips_loss_value = torch.stack(lpips_parts).mean()
 
                 # Compute current loss weight
+                #print(global_step)
                 mse_weight, lpips_weight = get_loss_weights(step=global_step, max_lpips_weight = max_lpips_weight, warmup_steps=blend_warmup_steps, patience_counter=patience_counter, prev_patience_counter=prev_patience_counter, lpips_decay_patience=lpips_decay_patience, lpips_decay_started=lpips_decay_started)
                 #mse_weight, lpips_weight = get_loss_weights(global_step)#,blend_warmup_steps)
                 
                 loss = mse_weight * mse_loss + lpips_weight * lpips_loss_value
+                
                 ######################################################
                 #loss = loss / accum_steps # Normalisation
 
@@ -320,6 +325,7 @@ def train(model, train_loader, val_loader, optimizer, device, num_epochs, val_sa
                 ema_decay = get_ema_decay(global_step, base=0.9, final=0.999, warmup_steps=10000)
                 ema.decay = ema_decay
                 ema.update()
+                model.step()
 
             train_loss += loss.item() * accum_steps
             #cos_sim = F.cosine_similarity(reconstruction.view(B, -1), images_out.view(B, -1), dim=1).detach().mean().item()

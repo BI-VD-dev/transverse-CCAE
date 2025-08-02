@@ -131,7 +131,10 @@ class CCAE(nn.Module):
 
         x = self.final_conv(x)
         return self.output_act(x)
-
+    
+    def step(self):
+            self.global_step += 1
+        
     def forward(self, x, cond):
         bottleneck = self.encode(x)
         output = self.decode(bottleneck, cond)
