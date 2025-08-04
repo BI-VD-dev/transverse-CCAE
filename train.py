@@ -219,13 +219,13 @@ def get_loss_weights(step, max_lpips_weight = max_lpips_weight, warmup_steps=ble
 
     # LPIPS Constant Phase
     elif not lpips_decay_started and patience_counter < lpips_decay_patience:
-        lpips_weight = lpips_max_weight
+        lpips_weight = max_lpips_weight
 
     # Trigger LPIPS Decay Phase
     elif not lpips_decay_started and patience_counter >= lpips_decay_patience:
         lpips_decay_started = True
         decay_progress = 0.0
-        lpips_weight = lpips_max_weight
+        lpips_weight = max_lpips_weight
 
     # LPIPS Decay Phase
     elif lpips_decay_started:
@@ -235,7 +235,7 @@ def get_loss_weights(step, max_lpips_weight = max_lpips_weight, warmup_steps=ble
                 1.0
             )
             lpips_weight = (
-                lpips_max_weight * (1.0 - decay_progress)
+                max_lpips_weight * (1.0 - decay_progress)
                 + lpips_decay_target_weight * decay_progress
             )
             
