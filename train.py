@@ -16,8 +16,8 @@ from ema import EMA
 import time
 import numpy as np
 
-# LPIPS
-import lpips
+## LPIPS
+#import lpips
 
 # Hardcoded paths
 CSV_FILE = "../VD-FEBE-Data/PreIP_512_FEB25/data_labels.csv"
@@ -35,9 +35,9 @@ early_stopping_patience = 50
 image_size = 512
 condition_dim = 4
 learning_rate = 1e-4
-lr_patience = np.round(early_stopping_patience/2)
-# LPIPS
-lpips_split_size = 4
+lr_patience = 15#np.round(early_stopping_patience/5)
+## LPIPS
+#lpips_split_size = 4
 
 # Create directories for saving models and outputs
 vis_dir = "epoch_debug_images"
@@ -90,23 +90,23 @@ val_sample = next(val_iter)
 
 # Initialize model, optimizer, and custom loss
 
-# LPIPS
-##########################################
-# Initialize LPIPS model
-lpips_loss_fn = lpips.LPIPS(net='vgg').to(device)
+## LPIPS
+###########################################
+## Initialize LPIPS model
+#lpips_loss_fn = lpips.LPIPS(net='vgg').to(device)
 
-# Disable gradients for LPIPS net
-for param in lpips_loss_fn.parameters():
-    param.requires_grad = False
+## Disable gradients for LPIPS net
+#for param in lpips_loss_fn.parameters():
+#    param.requires_grad = False
 
-# Hyperparameters for blending
-start_lpips_weight = 0.0
-max_lpips_weight = 0.9   # you can adjust how strong LPIPS becomes
-blend_warmup_steps = 10000  # number of steps over which we increase LPIPS weight
-lpips_decay_patience = np.round(early_stopping_patience/2.5)  # Start decay after 20 stagnant epochs
-lpips_decay_target_weight = 0.1  # Final reduced LPIPS weight
-lpips_decay_started = False
-##########################################
+## Hyperparameters for blending
+#start_lpips_weight = 0.0
+#max_lpips_weight = 0.9   # you can adjust how strong LPIPS becomes
+#blend_warmup_steps = 10000  # number of steps over which we increase LPIPS weight
+#lpips_decay_patience = np.round(early_stopping_patience/2.5)  # Start decay after 20 stagnant epochs
+#lpips_decay_target_weight = 0.1  # Final reduced LPIPS weight
+#lpips_decay_started = False
+###########################################
 criterion = nn.MSELoss()#WeightedMSELoss(epsilon=1e-3, foreground_weight=50.0).to(device) # Define the weighted MSE loss
 #criterion = FocalMSELoss(gamma=2.0).to(device) # Define the focal MSE loss
 model = CCAE(base_channels=32).to(device)
@@ -192,61 +192,61 @@ def make_gif(image_dir, output_file="output/training_progress.gif"):
     imageio.mimsave(output_file, images, duration=0.8)
 
 
-# LPIPS
-###############################################
+## LPIPS
+################################################
 def get_ema_decay(global_step, base=0.9, final=0.999, warmup_steps=10000):
     t = min(global_step / warmup_steps, 1.0)
     return base + (final - base) * t
 
-def sigmoid_rampup(current, rampup_length):
-    """Exponential sigmoid rampup from 0 to 1 over `rampup_length` steps."""
-    if rampup_length == 0:
-        return 1.0
-    #current = float(current)
-    current = np.clip(current, 0.0, rampup_length)
-    phase = 1.0 - current / rampup_length
-    return float(np.exp(-5.0 * phase * phase))
+#def sigmoid_rampup(current, rampup_length):
+#    """Exponential sigmoid rampup from 0 to 1 over `rampup_length` steps."""
+#    if rampup_length == 0:
+#        return 1.0
+#    #current = float(current)
+#    current = np.clip(current, 0.0, rampup_length)
+#    phase = 1.0 - current / rampup_length
+#    return float(np.exp(-5.0 * phase * phase))
 
-def get_loss_weights(step, max_lpips_weight = max_lpips_weight, warmup_steps=blend_warmup_steps, patience_counter = 0, prev_patience_counter = 0, lpips_decay_patience=lpips_decay_patience, lpips_decay_started=False):
+#def get_loss_weights(step, max_lpips_weight = max_lpips_weight, warmup_steps=blend_warmup_steps, patience_counter = 0, prev_patience_counter = 0, lpips_decay_patience=lpips_decay_patience, lpips_decay_started=False):
 
-    # LPIPS Ramp-up Phase
-    step = float(step)
-    #print(step)
-    if step < warmup_steps:
-        # LPIPS ramps from 0 to 0.9
-        lpips_weight = max_lpips_weight*sigmoid_rampup(step,warmup_steps)
-        #max_lpips_weight * progress
+#    # LPIPS Ramp-up Phase
+#    step = float(step)
+#    #print(step)
+#    if step < warmup_steps:
+#        # LPIPS ramps from 0 to 0.9
+#        lpips_weight = max_lpips_weight*sigmoid_rampup(step,warmup_steps)
+#        #max_lpips_weight * progress
 
-    # LPIPS Constant Phase
-    elif not lpips_decay_started and patience_counter < lpips_decay_patience:
-        lpips_weight = max_lpips_weight
+#    # LPIPS Constant Phase
+#    elif not lpips_decay_started and patience_counter < lpips_decay_patience:
+#        lpips_weight = max_lpips_weight
 
-    # Trigger LPIPS Decay Phase
-    elif not lpips_decay_started and patience_counter >= lpips_decay_patience:
-        lpips_decay_started = True
-        decay_progress = 0.0
-        lpips_weight = max_lpips_weight
+#    # Trigger LPIPS Decay Phase
+#    elif not lpips_decay_started and patience_counter >= lpips_decay_patience:
+#        lpips_decay_started = True
+#        decay_progress = 0.0
+#        lpips_weight = max_lpips_weight
 
-    # LPIPS Decay Phase
-    elif lpips_decay_started:
-        if patience_counter > prev_patience_counter:
-            decay_progress = min(
-                (patience_counter - lpips_decay_patience) / (early_stopping_patience - lpips_decay_patience),
-                1.0
-            )
-            lpips_weight = (
-                max_lpips_weight * (1.0 - decay_progress)
-                + lpips_decay_target_weight * decay_progress
-            )
+#    # LPIPS Decay Phase
+#    elif lpips_decay_started:
+#        if patience_counter > prev_patience_counter:
+#            decay_progress = min(
+#                (patience_counter - lpips_decay_patience) / (early_stopping_patience - lpips_decay_patience),
+#                1.0
+#            )
+#            lpips_weight = (
+#                max_lpips_weight * (1.0 - decay_progress)
+#                + lpips_decay_target_weight * decay_progress
+#            )
             
-    # L1 weight 1 - LPIPS_weight
-    l1_w = 1.0 - lpips_weight
+#    # L1 weight 1 - LPIPS_weight
+#    l1_w = 1.0 - lpips_weight
 
-    # Store patience counter
-    prev_patience_counter = patience_counter
+#    # Store patience counter
+#    prev_patience_counter = patience_counter
     
-    return l1_w, lpips_weight
-################################################
+#    return l1_w, lpips_weight
+#################################################
 
 def train(model, train_loader, val_loader, optimizer, device, num_epochs, val_sample):
     global best_val_loss, patience_counter, start_epoch, train_losses, val_losses, prev_patience_counter, patience_counter
@@ -285,28 +285,27 @@ def train(model, train_loader, val_loader, optimizer, device, num_epochs, val_sa
                 # Compute loss
                 mse_loss = criterion(reconstruction, images_out)#F.mse_loss(reconstruction, images_out)
                 # LPIPS
-                #####################################################
-                # LPIPS loss (safe microbatched + no_grad)
-                lpips_parts = []
-                batch_size = reconstruction.size(0)
+#                #####################################################
+#                # LPIPS loss (safe microbatched + no_grad)
+#                lpips_parts = []
+#                batch_size = reconstruction.size(0)
                 
-                with torch.no_grad():
-                    for i in range(0, batch_size, lpips_split_size):
-                        recon_split = reconstruction[i:i+lpips_split_size]
-                        target_split = images_out[i:i+lpips_split_size]
-                        lpips_part = lpips_loss_fn(recon_split, target_split).mean()
-                        lpips_parts.append(lpips_part)
+#                with torch.no_grad():
+#                    for i in range(0, batch_size, lpips_split_size):
+#                        recon_split = reconstruction[i:i+lpips_split_size]
+#                        target_split = images_out[i:i+lpips_split_size]
+#                        lpips_part = lpips_loss_fn(recon_split, target_split).mean()
+#                        lpips_parts.append(lpips_part)
                 
-                lpips_loss_value = torch.stack(lpips_parts).mean()
+#                lpips_loss_value = torch.stack(lpips_parts).mean()
 
                 # Compute current loss weight
                 #print(global_step)
-                mse_weight, lpips_weight = get_loss_weights(step=global_step, max_lpips_weight = max_lpips_weight, warmup_steps=blend_warmup_steps, patience_counter=patience_counter, prev_patience_counter=prev_patience_counter, lpips_decay_patience=lpips_decay_patience, lpips_decay_started=lpips_decay_started)
-                #mse_weight, lpips_weight = get_loss_weights(global_step)#,blend_warmup_steps)
+#                mse_weight, lpips_weight = get_loss_weights(step=global_step, max_lpips_weight = max_lpips_weight, warmup_steps=blend_warmup_steps, patience_counter=patience_counter, prev_patience_counter=prev_patience_counter, lpips_decay_patience=lpips_decay_patience, lpips_decay_started=lpips_decay_started)
                 
-                loss = mse_weight * mse_loss + lpips_weight * lpips_loss_value
+                loss = mse_loss#mse_weight * mse_loss + lpips_weight * lpips_loss_value
                 
-                ######################################################
+#                ######################################################
                 #loss = loss / accum_steps # Normalisation
 
             scaler.scale(loss).backward()
@@ -380,7 +379,7 @@ def train(model, train_loader, val_loader, optimizer, device, num_epochs, val_sa
         print(f"Epoch duration: {(end_time - start_time)/60:.2f} min")
         print(f"Current LR: {optimizer.param_groups[0]['lr']:.2e}")
 
-        print(f"Current LPIPS weight: {lpips_weight:.2e}")
+#        print(f"Current LPIPS weight: {lpips_weight:.2e}")
 
 
         # Save checkpoint every epoch (including loss history)
