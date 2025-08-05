@@ -31,11 +31,11 @@ device = torch.device(device_name)
 torch.backends.cudnn.benchmark = True
 batch_size = 32
 num_epochs = 2000
-early_stopping_patience = 50
+early_stopping_patience = 10
 image_size = 512
 condition_dim = 4
 learning_rate = 1e-4
-lr_patience = np.round(early_stopping_patience/2)
+lr_patience = 2#np.round(early_stopping_patience/5)
 # LPIPS
 lpips_split_size = 4
 
@@ -103,9 +103,10 @@ for param in lpips_loss_fn.parameters():
 start_lpips_weight = 0.0
 max_lpips_weight = 0.9   # you can adjust how strong LPIPS becomes
 blend_warmup_steps = 10000  # number of steps over which we increase LPIPS weight
-lpips_decay_patience = np.round(early_stopping_patience/2.5)  # Start decay after 20 stagnant epochs
+lpips_decay_patience = lr_patience#np.round(early_stopping_patience/2.5)  # Start decay after 20 stagnant epochs
 lpips_decay_target_weight = 0.1  # Final reduced LPIPS weight
 lpips_decay_started = False
+prev_patience_counter = 0
 ##########################################
 criterion = nn.MSELoss()#WeightedMSELoss(epsilon=1e-3, foreground_weight=50.0).to(device) # Define the weighted MSE loss
 #criterion = FocalMSELoss(gamma=2.0).to(device) # Define the focal MSE loss
@@ -191,13 +192,12 @@ def make_gif(image_dir, output_file="output/training_progress.gif"):
     images = [imageio.imread(p) for p in image_paths]
     imageio.mimsave(output_file, images, duration=0.8)
 
-
-# LPIPS
-###############################################
 def get_ema_decay(global_step, base=0.9, final=0.999, warmup_steps=10000):
     t = min(global_step / warmup_steps, 1.0)
     return base + (final - base) * t
 
+# LPIPS
+###############################################
 def sigmoid_rampup(current, rampup_length):
     """Exponential sigmoid rampup from 0 to 1 over `rampup_length` steps."""
     if rampup_length == 0:
@@ -207,7 +207,7 @@ def sigmoid_rampup(current, rampup_length):
     phase = 1.0 - current / rampup_length
     return float(np.exp(-5.0 * phase * phase))
 
-def get_loss_weights(step, max_lpips_weight = max_lpips_weight, warmup_steps=blend_warmup_steps, patience_counter = 0, prev_patience_counter = 0, lpips_decay_patience=lpips_decay_patience, lpips_decay_started=False):
+def get_loss_weights(step, max_lpips_weight = max_lpips_weight, warmup_steps=blend_warmup_steps, patience_counter = 0):
 
     # LPIPS Ramp-up Phase
     step = float(step)
@@ -238,7 +238,7 @@ def get_loss_weights(step, max_lpips_weight = max_lpips_weight, warmup_steps=ble
                 max_lpips_weight * (1.0 - decay_progress)
                 + lpips_decay_target_weight * decay_progress
             )
-            
+           
     # L1 weight 1 - LPIPS_weight
     l1_w = 1.0 - lpips_weight
 
@@ -301,8 +301,7 @@ def train(model, train_loader, val_loader, optimizer, device, num_epochs, val_sa
 
                 # Compute current loss weight
                 #print(global_step)
-                mse_weight, lpips_weight = get_loss_weights(step=global_step, max_lpips_weight = max_lpips_weight, warmup_steps=blend_warmup_steps, patience_counter=patience_counter, prev_patience_counter=prev_patience_counter, lpips_decay_patience=lpips_decay_patience, lpips_decay_started=lpips_decay_started)
-                #mse_weight, lpips_weight = get_loss_weights(global_step)#,blend_warmup_steps)
+                mse_weight, lpips_weight = get_loss_weights(step=global_step, max_lpips_weight = max_lpips_weight, warmup_steps=blend_warmup_steps, patience_counter=patience_counter)
                 
                 loss = mse_weight * mse_loss + lpips_weight * lpips_loss_value
                 
