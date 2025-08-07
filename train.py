@@ -31,11 +31,11 @@ device = torch.device(device_name)
 torch.backends.cudnn.benchmark = True
 batch_size = 32
 num_epochs = 2000
-early_stopping_patience = 10
+early_stopping_patience = 50
 image_size = 512
 condition_dim = 4
 learning_rate = 1e-4
-lr_patience = 2#np.round(early_stopping_patience/5)
+lr_patience = np.round(early_stopping_patience/5)
 # LPIPS
 lpips_split_size = 4
 
@@ -103,16 +103,15 @@ for param in lpips_loss_fn.parameters():
 start_lpips_weight = 0.0
 max_lpips_weight = 0.9   # you can adjust how strong LPIPS becomes
 blend_warmup_steps = 10000  # number of steps over which we increase LPIPS weight
-lpips_decay_patience = lr_patience#np.round(early_stopping_patience/2.5)  # Start decay after 20 stagnant epochs
+lpips_decay_patience = np.round(lr_patience*1.5)#np.round(early_stopping_patience/2.5)  # Start decay after 20 stagnant epochs
 lpips_decay_target_weight = 0.1  # Final reduced LPIPS weight
-lpips_decay_started = False
-prev_patience_counter = 0
+prev_lpips_weight = 0
 ##########################################
 criterion = nn.MSELoss()#WeightedMSELoss(epsilon=1e-3, foreground_weight=50.0).to(device) # Define the weighted MSE loss
 #criterion = FocalMSELoss(gamma=2.0).to(device) # Define the focal MSE loss
 model = CCAE(base_channels=32).to(device)
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-lr_scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=lr_patience, verbose=True)
+lr_scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=lr_patience, verbose=True, min_lr=1e-6)
 scaler = GradScaler(device=device_name) # FOR AMP
 ema = EMA(model, beta=0.999)
 ema_model = ema.ema_model
@@ -125,6 +124,8 @@ train_cos_sims = []
 val_cos_sims = []
 best_val_loss = float("inf")
 patience_counter = 0
+prev_patience_counter = 0
+lpips_decay_started = False
 start_epoch = 0  # To track resumption
 
 # Load checkpoint if available
@@ -135,6 +136,7 @@ if os.path.exists(checkpoint_path):
     scaler.load_state_dict(checkpoint["scaler_state"]) # FOR AMP
     best_val_loss = checkpoint["best_val_loss"]
     patience_counter = checkpoint["patience_counter"]
+    prev_patience_counter = checkpoint["prev_patience_counter"]
     start_epoch = checkpoint["epoch"] + 1  # Resume from next epoch
     train_losses = checkpoint["train_losses"]
     val_losses = checkpoint["val_losses"]
@@ -208,7 +210,7 @@ def sigmoid_rampup(current, rampup_length):
     return float(np.exp(-5.0 * phase * phase))
 
 def get_loss_weights(step, max_lpips_weight = max_lpips_weight, warmup_steps=blend_warmup_steps, patience_counter = 0):
-
+    global lpips_decay_started, prev_patience_counter, prev_lpips_weight
     # LPIPS Ramp-up Phase
     step = float(step)
     #print(step)
@@ -238,20 +240,23 @@ def get_loss_weights(step, max_lpips_weight = max_lpips_weight, warmup_steps=ble
                 max_lpips_weight * (1.0 - decay_progress)
                 + lpips_decay_target_weight * decay_progress
             )
+        else:
+            lpips_weight = prev_lpips_weight
            
     # L1 weight 1 - LPIPS_weight
     l1_w = 1.0 - lpips_weight
 
     # Store patience counter
     prev_patience_counter = patience_counter
-    
+    prev_lpips_weight = lpips_weight
     return l1_w, lpips_weight
 ################################################
 
 def train(model, train_loader, val_loader, optimizer, device, num_epochs, val_sample):
-    global best_val_loss, patience_counter, start_epoch, train_losses, val_losses, prev_patience_counter, patience_counter
+    global best_val_loss, patience_counter, start_epoch, train_losses, val_losses, prev_patience_counter, patience_counter, lpips_decay_started
     patience_counter = 0
     prev_patience_counter = patience_counter
+    lpips_decay_started = False
     for epoch in range(start_epoch, num_epochs):
         # For Weighted MSE
         #if epoch % 10 == 0:  # Every 10 epochs, lower the foreground weight
