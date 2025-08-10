@@ -137,6 +137,7 @@ if os.path.exists(checkpoint_path):
     best_val_loss = checkpoint["best_val_loss"]
     patience_counter = checkpoint["patience_counter"]
     prev_patience_counter = checkpoint["prev_patience_counter"]
+    lpips_decay_started = checkpoint["lpips_decay_started"]
     start_epoch = checkpoint["epoch"] + 1  # Resume from next epoch
     train_losses = checkpoint["train_losses"]
     val_losses = checkpoint["val_losses"]
@@ -395,6 +396,8 @@ def train(model, train_loader, val_loader, optimizer, device, num_epochs, val_sa
             "scaler_state": scaler.state_dict(),
             "best_val_loss": best_val_loss,
             "patience_counter": patience_counter,
+            "prev_patience_counter": prev_patience_counter,
+            "lpips_decay_started": lpips_decay_started,
             "train_losses": train_losses,
             "val_losses": val_losses,
             "ema_state": ema_model.state_dict(),
